@@ -6,6 +6,11 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Newtonsoft.Json.Linq;
 
+/**
+ * Unity3MXLoader
+ * 一个加载3MX模型的Unity插件
+ * @author lijuhong1981
+ */
 namespace Unity3MX
 {
     public class Unity3MXComponent : MonoBehaviour

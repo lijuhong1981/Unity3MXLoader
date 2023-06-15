@@ -2,6 +2,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+/**
+ * Unity3MXLoader
+ * 一个加载3MX模型的Unity插件
+ * @author lijuhong1981
+ */
 namespace Unity3MX
 {
     //定义Tile资源状态

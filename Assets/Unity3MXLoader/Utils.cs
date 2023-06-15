@@ -1,11 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Threading;
 using UnityEngine;
 using UnityEngine.Networking;
 
+/**
+ * Unity3MXLoader
+ * 一个加载3MX模型的Unity插件
+ * @author lijuhong1981
+ */
 namespace Unity3MX
 {
     public class UrlUtils
