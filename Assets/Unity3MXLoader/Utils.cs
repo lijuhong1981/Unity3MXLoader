@@ -66,18 +66,20 @@ namespace Unity3MX
                     url = "file:////" + url.Substring(7);
                 }
 
-                UnityWebRequest www = UnityWebRequest.Get(url);
-                yield return www.SendWebRequest();
+                using (UnityWebRequest www = UnityWebRequest.Get(url))
+                {
+                    yield return www.SendWebRequest();
 
-                if (www.result != UnityWebRequest.Result.Success)
-                {
-                    Debug.LogWarning(www.error);
-                    onError?.Invoke(www.error);
-                }
-                else
-                {
-                    onText?.Invoke(www.downloadHandler.text);
-                    onData?.Invoke(www.downloadHandler.data);
+                    if (www.result != UnityWebRequest.Result.Success)
+                    {
+                        Debug.LogWarning("Get " + url + " error: " + www.error);
+                        onError?.Invoke(www.error);
+                    }
+                    else
+                    {
+                        onText?.Invoke(www.downloadHandler.text);
+                        onData?.Invoke(www.downloadHandler.data);
+                    }
                 }
             }
         }

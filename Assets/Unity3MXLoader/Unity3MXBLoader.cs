@@ -79,7 +79,7 @@ namespace Unity3MX
 
             public IEnumerator Start(bool parseInThread = true)
             {
-                Debug.Log("Start: " + mLoader.url);
+                //Debug.Log("Start: " + mLoader.url);
                 mTime = DateTime.Now.ToFileTime();
                 yield return RequestUtils.GetData(mLoader.url, null, (byte[] data) =>
                 {
@@ -175,8 +175,8 @@ namespace Unity3MX
                         if (mIsCanceled)
                             return;
                         mLoader.onLoad(header);
-                        var usingTime = (DateTime.Now.ToFileTime() - mTime) / 10000L;
-                        Debug.Log("Finished: " + mLoader.url + "; usingTime: " + usingTime);
+                        //var usingTime = (DateTime.Now.ToFileTime() - mTime) / 10000L;
+                        //Debug.Log("Finished: " + mLoader.url + "; usingTime: " + usingTime);
                     }
                 }
             }

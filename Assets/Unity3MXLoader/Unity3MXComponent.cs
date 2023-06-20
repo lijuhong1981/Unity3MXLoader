@@ -193,6 +193,7 @@ namespace Unity3MX
         private IEnumerator initialize()
         {
             mLoading = true;
+            
             //获取url指向的文本
             yield return RequestUtils.GetText(url, null, (string text) =>
             {

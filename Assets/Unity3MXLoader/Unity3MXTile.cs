@@ -262,7 +262,9 @@ namespace Unity3MX
             {
                 node.Unload(recursivelyChildren);
             }
-            destroyGameObject();
+            //GameObject已创建，调用SetActive(false)
+            if (mGameObject != null)
+                mGameObject.SetActive(false);
         }
 
         //销毁当前Tile
@@ -396,48 +398,53 @@ namespace Unity3MX
         //显示当前Node
         public void Show()
         {
-            if (mDestroyed || mGameObject != null)
+            if (mDestroyed)
                 return;
-            //生成GameObject
-            mGameObject = new GameObject(mNodeInfo.id);
-            var collider = mGameObject.AddComponent<BoxCollider>();
-            collider.center = mNodeInfo.bounds.center;
-            collider.size = mNodeInfo.bounds.size;
-            //挂载到Tile下
-            mGameObject.transform.SetParent(mTile.gameObject.transform, false);
-
-            foreach (var key in mNodeInfo.resources)
+            if (mGameObject == null)
             {
-                var resource = mTile.resourceCache[key];
-                if (resource.type == "geometryBuffer")
+                //生成GameObject
+                mGameObject = new GameObject(mNodeInfo.id);
+                var collider = mGameObject.AddComponent<BoxCollider>();
+                collider.center = mNodeInfo.bounds.center;
+                collider.size = mNodeInfo.bounds.size;
+                //挂载到Tile下
+                mGameObject.transform.SetParent(mTile.gameObject.transform, false);
+
+                foreach (var key in mNodeInfo.resources)
                 {
-                    //网格
-                    if (resource.format == "ctm")
+                    var resource = mTile.resourceCache[key];
+                    if (resource.type == "geometryBuffer")
                     {
-                        var meshObject = new GameObject(resource.id);
-                        meshObject.transform.SetParent(mGameObject.transform, false);
-
-                        var meshFilter = meshObject.AddComponent<MeshFilter>();
-                        meshFilter.mesh = MeshData.ConstructMesh(resource.meshData);
-
-                        var textureRes = mTile.resourceCache[resource.texture];
-                        if (textureRes != null)
+                        //网格
+                        if (resource.format == "ctm")
                         {
-                            var meshRender = meshObject.AddComponent<MeshRenderer>();
-                            meshRender.material = new Material(Shader.Find("HDRP/Lit"));
-                            //生成Texture
-                            var texture = new Texture2D(1, 1);
-                            texture.LoadImage(textureRes.textureData);
-                            meshRender.material.mainTexture = texture;
-                            //meshRender.material.SetTexture("_BaseColorMap", texture);
-                            meshRender.material.SetFloat("_Smoothness", 0);
-                            meshRender.material.EnableKeyword("_BaseColorMap");
-                            meshRender.material.EnableKeyword("_Smoothness");
-                            meshRender.shadowCastingMode = mRootComponent.shadowCastingMode;
+                            var meshObject = new GameObject(resource.id);
+                            meshObject.transform.SetParent(mGameObject.transform, false);
+
+                            var meshFilter = meshObject.AddComponent<MeshFilter>();
+                            meshFilter.mesh = MeshData.ConstructMesh(resource.meshData);
+
+                            var textureRes = mTile.resourceCache[resource.texture];
+                            if (textureRes != null)
+                            {
+                                var meshRender = meshObject.AddComponent<MeshRenderer>();
+                                meshRender.material = new Material(Shader.Find("HDRP/Lit"));
+                                //生成Texture
+                                var texture = new Texture2D(1, 1);
+                                texture.LoadImage(textureRes.textureData);
+                                meshRender.material.mainTexture = texture;
+                                //meshRender.material.SetTexture("_BaseColorMap", texture);
+                                meshRender.material.SetFloat("_Smoothness", 0);
+                                meshRender.material.EnableKeyword("_BaseColorMap");
+                                meshRender.material.EnableKeyword("_Smoothness");
+                                meshRender.shadowCastingMode = mRootComponent.shadowCastingMode;
+                            }
                         }
                     }
                 }
             }
+            mGameObject.SetActive(true);
+            mTile.gameObject.SetActive(true);
             //添加到readyNodes列表中
             if (!mTile.readyNodes.Contains(this))
                 mTile.readyNodes.Add(this);
@@ -462,16 +469,14 @@ namespace Unity3MX
                     tile.Unload(recursivelyChildren);
                 }
             }
+            //GameObject已创建，调用SetActive(false)
             if (mGameObject != null)
-            {
-                Object.Destroy(mGameObject);
-                mGameObject = null;
-                //从readyNodes列表中移除
-                mTile.readyNodes.Remove(this);
-                //readyNodes列表已空，说明Tile下所有Node都已被卸载，执行destroyGameObject
-                if (mTile.readyNodes.Count == 0)
-                    mTile.destroyGameObject();
-            }
+                mGameObject.SetActive(false);
+            //从readyNodes列表中移除
+            mTile.readyNodes.Remove(this);
+            //readyNodes列表已空，说明Tile下所有Node都已被卸载，调用Tile.gameObject.SetActive(false)
+            if (mTile.readyNodes.Count == 0)
+                mTile.gameObject.SetActive(false);
         }
 
         //销毁所有子Tile
