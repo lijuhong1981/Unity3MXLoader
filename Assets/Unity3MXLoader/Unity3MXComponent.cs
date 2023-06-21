@@ -24,9 +24,12 @@ namespace Unity3MX
         [Tooltip("执行更新时间间隔，单位秒")]
         [Min(0)]
         public float updateIntervalTime = 1.0f / 60;
-        [Tooltip("直径缩放比率")]
+        [Tooltip("直径缩放倍率，会影响当前相机视图下显示层级的选择")]
         [Min(0.1f)]
         public float diameterRatio = 1.0f;
+        [Tooltip("相机fov倍率，会影响相机可见区域的范围")]
+        [Min(0.1f)]
+        public float fieldOfViewRatio = 1.5f;
         [Tooltip("阴影模式")]
         public ShadowCastingMode shadowCastingMode = ShadowCastingMode.On;
         [Tooltip("失败重试次数")]
@@ -124,7 +127,7 @@ namespace Unity3MX
                 //生成CameraState并执行Update
                 if (mCameraState == null)
                     mCameraState = new CameraState();
-                mCameraState.Update(mainCamera);
+                mCameraState.Update(this, mainCamera);
             }
             //未初始化或未获取到主相机，不往下执行
             if (!mReady || mCameraState == null || mRootNodes.Count == 0)
@@ -147,7 +150,7 @@ namespace Unity3MX
             //    mRootNodes[i].Update(mCameraState);
             //}
             //mRootNodes[1].Update(mCameraState);
-            
+
             if (mReadyUnloadNodes.Count > 0)
             {
                 //遍历readyUnloadNodes
@@ -161,7 +164,8 @@ namespace Unity3MX
             }
         }
 
-        private int compareRootNode(Unity3MXRootNode left, Unity3MXRootNode right) {
+        private int compareRootNode(Unity3MXRootNode left, Unity3MXRootNode right)
+		{
             var result = left.cameraDistance - right.cameraDistance;
             if (result > 0)
                 return Mathf.CeilToInt(result);
@@ -182,7 +186,7 @@ namespace Unity3MX
             if (UrlUtils.CheckUrl(url))
             {
                 //获取baseUrl
-                mBaseUrl = UrlUtils.GetBaseUrl(url);
+                mBaseUrl = UrlUtils.ExtractBaseUrl(url);
                 Debug.Log("Get baseUrl: " + mBaseUrl);
                 //开始初始化
                 StartCoroutine(initialize());
@@ -193,7 +197,7 @@ namespace Unity3MX
         private IEnumerator initialize()
         {
             mLoading = true;
-            
+
             //获取url指向的文本
             yield return RequestUtils.GetText(url, null, (string text) =>
             {
@@ -225,7 +229,7 @@ namespace Unity3MX
             string rootPath = (string)jLayer.GetValue("root");
             mRootDataPath = mBaseUrl + rootPath;
             Debug.Log("Get rootDataPath: " + mRootDataPath);
-            mBaseDataUrl = UrlUtils.GetBaseUrl(mRootDataPath);
+            mBaseDataUrl = UrlUtils.ExtractBaseUrl(mRootDataPath);
 
             JToken value = jLayer.GetValue("offset");
             if (value != null)
@@ -307,6 +311,7 @@ namespace Unity3MX
     public class CameraState
     {
         public Camera camera;
+        private Camera mCamera;
         public Plane[] planes;
         public float fieldOfView;
         public float nearClipPlane;
@@ -314,16 +319,20 @@ namespace Unity3MX
         public float topClipPlane;
         public float rightClipPlane;
 
-        public void Update(Camera camera)
+        public void Update(PCI3MXComponent rootComponent, Camera camera)
         {
             bool changed = false;
-            if (this.camera != camera)
+            if (mCamera != camera)
             {
-                this.camera = camera;
+                mCamera = camera;
+                if (this.camera != null)
+                    UnityEngine.Object.Destroy(this.camera);
+                //克隆一个新相机
+                this.camera = UnityEngine.Object.Instantiate(camera);
+                //设置为非活动状态
+                this.camera.gameObject.SetActive(false);
                 changed = true;
             }
-            //获取相机视锥体planes
-            this.planes = GeometryUtility.CalculateFrustumPlanes(camera);
             if (this.fieldOfView != camera.fieldOfView)
             {
                 this.fieldOfView = camera.fieldOfView;
@@ -343,6 +352,15 @@ namespace Unity3MX
                 //计算rightClipPlane
                 this.rightClipPlane = camera.aspect * this.topClipPlane;
             }
+            //设置相机相关参数
+            this.camera.fieldOfView = camera.fieldOfView * rootComponent.fieldOfViewRatio;
+            this.camera.aspect = camera.aspect;
+            this.camera.nearClipPlane = camera.nearClipPlane;
+            this.camera.farClipPlane = camera.farClipPlane;
+            this.camera.transform.position = camera.transform.position;
+            this.camera.transform.rotation = camera.transform.rotation;
+            //获取相机视锥体planes
+            this.planes = GeometryUtility.CalculateFrustumPlanes(this.camera);
         }
 
         //测试是否可见

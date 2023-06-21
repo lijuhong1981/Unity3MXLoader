@@ -32,7 +32,7 @@ namespace Unity3MX
             return true;
         }
 
-        public static string GetBaseUrl(string url)
+        public static string ExtractBaseUrl(string url)
         {
             Uri uri = new Uri(url);
             string noLastSegment = "";
@@ -46,6 +46,19 @@ namespace Unity3MX
             //builder.Query = null;
             //builder.Fragment = null;
             return builder.Uri.ToString();
+        }
+
+        public static string ExtractFileName(string url)
+        {
+            Uri uri = new Uri(url);
+            var lastSegment = UnityWebRequest.UnEscapeURL(uri.Segments[uri.Segments.Length - 1]);
+            var end = lastSegment.LastIndexOf("?");
+            string result;
+            if (end == -1)
+                result = lastSegment;
+            else
+                result = lastSegment.Substring(0, end);
+            return result;
         }
     }
 

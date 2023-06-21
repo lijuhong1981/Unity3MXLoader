@@ -112,12 +112,12 @@ namespace Unity3MX
         {
             mRootComponent = rootComponent;
             mRootNode = rootNode;
-            mId = id;
             //ªÒ»°url
             if (parentNode == null)
                 mUrl = rootComponent.baseDataUrl + id;
             else
                 mUrl = rootNode.baseUrl + id;
+            mId = UrlUtils.ExtractFileName(mUrl);
             mParentNode = parentNode;
             mLoader = new Unity3MXBLoader(rootComponent, mUrl);
             mLoader.onError += onError;

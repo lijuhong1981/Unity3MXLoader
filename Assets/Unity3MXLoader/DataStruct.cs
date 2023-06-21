@@ -103,10 +103,10 @@ namespace Unity3MX
 
     //public struct TextureData
     //{
+    //    public byte[] sourceData;
     //    public int width;
     //    public int height;
-    //    public TextureFormat format;
-    //    public bool streamingMipmaps;
+    //    public byte[] rawData;
     //}
 
     public struct MeshData
