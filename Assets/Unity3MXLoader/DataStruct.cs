@@ -29,7 +29,7 @@ namespace Unity3MX
         public Bounds bounds;
 
         [Newtonsoft.Json.JsonIgnore]
-        public float boundingSphereRadius;
+        public float bsRadius;
 
         public string ToJson()
         {
@@ -131,6 +131,7 @@ namespace Unity3MX
                 mesh.normals = data.normals;
             else
                 mesh.RecalculateNormals();
+            //mesh.RecalculateBounds();
             mesh.bounds.SetMinMax(data.bbMin, data.bbMax);
             return mesh;
         }

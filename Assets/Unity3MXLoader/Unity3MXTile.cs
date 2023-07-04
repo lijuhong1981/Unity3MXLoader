@@ -114,9 +114,13 @@ namespace Unity3MX
             mRootNode = rootNode;
             //获取url
             if (parentNode == null)
+            {
                 mUrl = rootComponent.baseDataUrl + id;
+            }
             else
+            {
                 mUrl = rootNode.baseUrl + id;
+            }
             mId = UrlUtils.ExtractFileName(mUrl);
             mParentNode = parentNode;
             mLoader = new Unity3MXBLoader(rootComponent, mUrl);
@@ -129,7 +133,7 @@ namespace Unity3MX
         {
             if (mDestroyed)
                 return;
-            Debug.LogError(error);
+            //Debug.LogError(error);
             mResourceState = TileResourceState.FAILED;
         }
 
@@ -154,7 +158,7 @@ namespace Unity3MX
             }
         }
 
-        public void Update(CameraState cameraState)
+        public void Process(CameraState cameraState)
         {
             if (mDestroyed)
                 return;
@@ -197,14 +201,14 @@ namespace Unity3MX
             //执行node.Update
             foreach (var node in mNodes.Values)
             {
-                node.Update(cameraState);
+                node.Process(cameraState);
             }
         }
 
         private void loadResource()
         {
             mResourceState = TileResourceState.LOADING;
-            mRootComponent.StartCoroutine(mLoader.Load());
+            mLoader.Load();
         }
 
         //开始加载资源
@@ -221,6 +225,7 @@ namespace Unity3MX
             else if (isResourceFailed && mRetryCount < mRootComponent.failRetryCount)
             {
                 mRetryCount++;
+                Debug.LogWarning("This tile load failed, retry load. url:" + mUrl + "; retryCount: " + mRetryCount);
                 loadResource();
             }
         }
@@ -273,6 +278,10 @@ namespace Unity3MX
             if (mDestroyed)
                 return;
 
+            mLoader.onError -= onError;
+            mLoader.onLoad -= onLoad;
+            mLoader.Cancel();
+
             foreach (var node in mNodes.Values)
             {
                 node.Destroy();
@@ -280,9 +289,6 @@ namespace Unity3MX
             mNodes.Clear();
             mReadyNodes.Clear();
 
-            mLoader.onError -= onError;
-            mLoader.onLoad -= onLoad;
-            mLoader.Cancel();
             destroyGameObject();
             clearResourceCache();
 
@@ -320,7 +326,7 @@ namespace Unity3MX
             mNodeInfo = nodeInfo;
         }
 
-        public void Update(CameraState cameraState)
+        public void Process(CameraState cameraState)
         {
             if (mDestroyed)
                 return;
@@ -329,7 +335,7 @@ namespace Unity3MX
             //计算当前Node在屏幕上的单位像素大小，既米/像素
             var pixelSize = cameraState.ComputePixelSize(center);
             //计算boundingSphere在屏幕上的投影像素直径
-            var diameter = mNodeInfo.boundingSphereRadius / pixelSize * mRootComponent.diameterRatio;
+            var diameter = mNodeInfo.bsRadius / pixelSize * mRootComponent.diameterRatio;
             //当前Node的boundingSphere投影像素直径大于maxScreenDiameter且存在下一级tile，则加载下一级别
             if (diameter > mNodeInfo.maxScreenDiameter && mNodeInfo.children.Count > 0)
             {
@@ -338,7 +344,7 @@ namespace Unity3MX
                 bool isUninitialized = false;
                 foreach (var tile in mChildTiles)
                 {
-                    tile.Update(cameraState);
+                    tile.Process(cameraState);
                     isUninitialized = tile.isUninitialized || isUninitialized;
                 }
                 //有子Tile还未初始化
@@ -404,9 +410,9 @@ namespace Unity3MX
             {
                 //生成GameObject
                 mGameObject = new GameObject(mNodeInfo.id);
-                var collider = mGameObject.AddComponent<BoxCollider>();
-                collider.center = mNodeInfo.bounds.center;
-                collider.size = mNodeInfo.bounds.size;
+                //var collider = mGameObject.AddComponent<BoxCollider>();
+                //collider.center = mNodeInfo.bounds.center;
+                //collider.size = mNodeInfo.bounds.size;
                 //挂载到Tile下
                 mGameObject.transform.SetParent(mTile.gameObject.transform, false);
 
@@ -424,21 +430,28 @@ namespace Unity3MX
                             var meshFilter = meshObject.AddComponent<MeshFilter>();
                             meshFilter.mesh = MeshData.ConstructMesh(resource.meshData);
 
-                            var textureRes = mTile.resourceCache[resource.texture];
-                            if (textureRes != null)
+                            if (mTile.resourceCache.ContainsKey(resource.texture))
                             {
-                                var meshRender = meshObject.AddComponent<MeshRenderer>();
-                                meshRender.material = new Material(Shader.Find("HDRP/Lit"));
-                                //生成Texture
-                                var texture = new Texture2D(1, 1);
-                                texture.LoadImage(textureRes.textureData);
-                                meshRender.material.mainTexture = texture;
-                                //meshRender.material.SetTexture("_BaseColorMap", texture);
-                                meshRender.material.SetFloat("_Smoothness", 0);
-                                meshRender.material.EnableKeyword("_BaseColorMap");
-                                meshRender.material.EnableKeyword("_Smoothness");
-                                meshRender.shadowCastingMode = mRootComponent.shadowCastingMode;
+                                var textureRes = mTile.resourceCache[resource.texture];
+                                if (textureRes.textureData != null)
+                                {
+                                    var meshRender = meshObject.AddComponent<MeshRenderer>();
+                                    meshRender.material = new Material(Shader.Find("HDRP/Lit"));
+                                    //生成Texture
+                                    var texture = new Texture2D(1, 1);
+                                    texture.LoadImage(textureRes.textureData);
+                                    meshRender.material.mainTexture = texture;
+                                    //meshRender.material.SetTexture("_BaseColorMap", texture);
+                                    meshRender.material.SetFloat("_Smoothness", 0);
+                                    meshRender.material.EnableKeyword("_BaseColorMap");
+                                    meshRender.material.EnableKeyword("_Smoothness");
+                                    meshRender.shadowCastingMode = mRootComponent.shadowCastingMode;
+                                }
                             }
+
+                            //TODO 某些数据添加MeshCollider会报错，需要进一步研究
+                            var meshCollider = meshObject.AddComponent<MeshCollider>();
+                            meshCollider.sharedMesh = meshFilter.mesh;
                         }
                     }
                 }

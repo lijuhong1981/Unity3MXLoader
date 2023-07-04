@@ -78,10 +78,12 @@ namespace Unity3MX
                     //¹²ÏíÎÄ¼þ¼Ð
                     url = "file:////" + url.Substring(7);
                 }
-
+                var time = Time.time;
                 using (UnityWebRequest www = UnityWebRequest.Get(url))
                 {
                     yield return www.SendWebRequest();
+                    time = Time.time - time;
+                    Debug.Log("This request " + url + " use time: " + time);
 
                     if (www.result != UnityWebRequest.Result.Success)
                     {

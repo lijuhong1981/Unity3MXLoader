@@ -36,7 +36,12 @@ namespace Unity3MX
         {
             get { return mGameObject; }
         }
-        private BoxCollider mCollider;
+        private BoxCollider mDebugCollider;
+        private Bounds mBounds;
+        public Bounds bounds
+        {
+            get { return mBounds; }
+        }
         private float mCameraDistance;
         public float cameraDistance
         {
@@ -56,7 +61,7 @@ namespace Unity3MX
             mBaseUrl = rootComponent.baseDataUrl + nodeInfo.id + "/";
         }
 
-        public void Update(CameraState cameraState)
+        public void Process(CameraState cameraState)
         {
             if (mDestroyed)
                 return;
@@ -65,28 +70,35 @@ namespace Unity3MX
             {
                 //生成gameObject
                 mGameObject = new GameObject(mNodeInfo.id);
-                //生成BoxCollider，用于测试是否可见
-                mCollider = mGameObject.AddComponent<BoxCollider>();
-                mCollider.center = mNodeInfo.bounds.center;
-                mCollider.size = mNodeInfo.bounds.size;
+                //生成BoxCollider
+                mDebugCollider = mGameObject.AddComponent<BoxCollider>();
+                mDebugCollider.center = mNodeInfo.bounds.center;
+                mDebugCollider.size = mNodeInfo.bounds.size;
+                mDebugCollider.enabled = false;
                 //挂载到rootObject下
                 mGameObject.transform.SetParent(mRootComponent.rootObject.transform, false);
+                //生成Bounds，用于计算是否可见
+                mBounds = new Bounds(mNodeInfo.bounds.center, mNodeInfo.bounds.size);
                 //计算当前Node中心点到相机位置的距离
-                mCameraDistance = Vector3.Distance(mCollider.bounds.center, cameraState.camera.transform.position);
+                mCameraDistance = Vector3.Distance(mBounds.center, cameraState.camera.transform.position);
                 //完成后直接return，等待下一帧对RootNode排序后再执行下面的代码
                 return;
             }
+            mDebugCollider.enabled = mRootComponent.enableDebugCollider;
+            //计算bounds.center的世界坐标
+            var center = mGameObject.transform.TransformPoint(mNodeInfo.bounds.center);
+            mBounds.center = center;
             //计算当前Node中心点到相机位置的距离
-            mCameraDistance = Vector3.Distance(mCollider.bounds.center, cameraState.camera.transform.position);
+            mCameraDistance = Vector3.Distance(center, cameraState.camera.transform.position);
             //判断Node是否可见
-            if (cameraState.TestVisibile(mCollider.bounds))
+            if (cameraState.TestVisibile(mBounds))
             {
                 //Node可见，调用ensureChildTiles
                 ensureChildTiles();
                 //执行tile.Update
                 foreach (var tile in mChildTiles)
                 {
-                    tile.Update(cameraState);
+                    tile.Process(cameraState);
                 }
             }
             else

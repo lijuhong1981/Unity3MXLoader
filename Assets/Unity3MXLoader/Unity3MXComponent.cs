@@ -21,20 +21,25 @@ namespace Unity3MX
         public Camera mainCamera;
         [Tooltip("是否随脚本启动执行")]
         public bool runOnStart = true;
-        [Tooltip("执行更新时间间隔，单位秒")]
+        [Tooltip("执行处理逻辑时间间隔，单位秒")]
         [Min(0)]
-        public float updateIntervalTime = 1.0f / 60;
+        public float processInterval = 1.0f / 30.0f;
+        [Tooltip("最大并发任务数，也可以理解为最大并发线程数")]
+        [Min(1)]
+        public int maxTaskCount = Environment.ProcessorCount;
         [Tooltip("直径缩放倍率，会影响当前相机视图下显示层级的选择")]
         [Min(0.1f)]
         public float diameterRatio = 1.0f;
         [Tooltip("相机fov倍率，会影响相机可见区域的范围")]
         [Min(0.1f)]
-        public float fieldOfViewRatio = 1.5f;
+        public float fieldOfViewRatio = 1.2f;
         [Tooltip("阴影模式")]
         public ShadowCastingMode shadowCastingMode = ShadowCastingMode.On;
         [Tooltip("失败重试次数")]
         [Min(0)]
         public int failRetryCount = 5;
+        [Tooltip("是否启用DebugCollider，开启后会为每个Tile添加一个BoxCollider")]
+        public bool enableDebugCollider = false;
         [Tooltip("是否开启内存缓存，开启后加载过的瓦片资源会缓存在内存里，能减少加载次数但会加大内存消耗")]
         public bool enableMemeoryCache = false;
 
@@ -97,15 +102,32 @@ namespace Unity3MX
         }
 
         private List<Unity3MXRootNode> mRootNodes = new();
+        public List<Unity3MXRootNode> rootNodes
+        {
+            get { return mRootNodes; }
+        }
         private List<Unity3MXTileNode> mReadyUnloadNodes = new();
+
+        public delegate void OnReady(Unity3MXComponent component);
+        public event OnReady onReady;
+        public delegate void OnError(Unity3MXComponent component, string error);
+        public event OnError onError;
+
+        internal TaskPool taskPool = new();
 
         // Start is called before the first frame update
         void Start()
         {
+            Debug.Log("ProcessorCount: " + Environment.ProcessorCount);
             if (mainCamera == null)
                 mainCamera = Camera.main;
             if (runOnStart)
                 Run();
+        }
+
+        private void OnDestroy()
+        {
+            taskPool.Dispose();
         }
 
         // Update is called once per frame
@@ -118,7 +140,7 @@ namespace Unity3MX
         {
             //计算间隔时间是否大于updateIntervalTime，是则继续往下执行
             float nowTime = Time.time;
-            if (nowTime - mLastTime < updateIntervalTime)
+            if (nowTime - mLastTime < processInterval)
                 return;
             mLastTime = nowTime;
             //主相机不为空
@@ -136,12 +158,14 @@ namespace Unity3MX
             if (mHasOffset)
                 mRootObject.transform.localPosition = mOffset;
 
+            taskPool.MaxTasks = maxTaskCount;
+
             //按相机距离升序排序
             mRootNodes.Sort(compareRootNode);
             //执行node.Update
             foreach (var rootNode in mRootNodes)
             {
-                rootNode.Update(mCameraState);
+                rootNode.Process(mCameraState);
             }
             //test code
             //var length = Math.Min(2, mRootNodes.Count);
@@ -183,11 +207,16 @@ namespace Unity3MX
             if (mLoading)
                 return;
             //检查url是否可用
-            if (UrlUtils.CheckUrl(url))
+            if (UrlUtils.CheckUrl(url, (string error) =>
+            {
+                onError?.Invoke(this, error);
+            }))
             {
                 //获取baseUrl
                 mBaseUrl = UrlUtils.ExtractBaseUrl(url);
                 Debug.Log("Get baseUrl: " + mBaseUrl);
+                //启动TaskPool
+                taskPool.Start();
                 //开始初始化
                 StartCoroutine(initialize());
             }
@@ -198,13 +227,21 @@ namespace Unity3MX
         {
             mLoading = true;
 
+            bool isError = false;
             //获取url指向的文本
-            yield return RequestUtils.GetText(url, null, (string text) =>
+            yield return RequestUtils.GetText(url, (string error) =>
+            {
+                onError?.Invoke(this, error);
+                isError = true;
+            }, (string text) =>
             {
                 Debug.Log("Get rootJson: " + text);
 
                 parseRootJson(text);
             });
+
+            if (isError)
+                yield break;
 
             yield return createRootObject();
             yield return loadRootData();
@@ -250,7 +287,7 @@ namespace Unity3MX
         {
             mRootObject = new GameObject("Root");
             mRootObject.transform.SetParent(this.transform, false);
-            yield return null;
+            yield return new WaitForEndOfFrame();
         }
 
         //加载根数据
@@ -268,8 +305,15 @@ namespace Unity3MX
                 //初始化完成
                 mLoading = false;
                 mReady = true;
+                Debug.Log("This 3MXComponent is ready.");
+                onReady?.Invoke(this);
             };
-            yield return loader.Load();
+            loader.onError += (string error) =>
+            {
+                onError?.Invoke(this, error);
+            };
+            loader.Load();
+            yield return null;
         }
 
         public void Clear()
@@ -277,12 +321,22 @@ namespace Unity3MX
             //加载未完成，不能调用Clear()
             if (!mReady)
                 return;
+
+            taskPool.Clear();
+            taskPool.Stop();
+            //StopAllCoroutines();
+
             foreach (var node in mRootNodes)
             {
                 node.Destroy();
             }
             mRootNodes.Clear();
             mReadyUnloadNodes.Clear();
+            if (mRootObject != null)
+            {
+                Destroy(mRootObject);
+                mRootObject = null;
+            }
 
             mReady = false;
         }
@@ -319,7 +373,7 @@ namespace Unity3MX
         public float topClipPlane;
         public float rightClipPlane;
 
-        public void Update(PCI3MXComponent rootComponent, Camera camera)
+        public void Update(Unity3MXComponent rootComponent, Camera camera)
         {
             bool changed = false;
             if (mCamera != camera)
