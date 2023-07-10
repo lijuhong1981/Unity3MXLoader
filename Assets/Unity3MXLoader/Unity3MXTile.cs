@@ -436,7 +436,14 @@ namespace Unity3MX
                                 if (textureRes.textureData != null)
                                 {
                                     var meshRender = meshObject.AddComponent<MeshRenderer>();
-                                    meshRender.material = new Material(Shader.Find("HDRP/Lit"));
+                                    var shader = Shader.Find(mRootComponent.shaderName);
+                                    //查找不到Shader，使用Unity自带的Unlit/Texture
+                                    if (shader == null)
+                                    {
+                                        Debug.LogWarning("Not find shader by " + mRootComponent.shaderName + ", use unity default shader Unlit/Texture.");
+                                        shader = Shader.Find("Unlit/Texture");
+                                    }
+                                    meshRender.material = new Material(shader);
                                     //生成Texture
                                     var texture = new Texture2D(1, 1);
                                     texture.LoadImage(textureRes.textureData);

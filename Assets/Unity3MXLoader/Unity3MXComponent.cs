@@ -33,6 +33,8 @@ namespace Unity3MX
         [Tooltip("相机fov倍率，会影响相机可见区域的范围")]
         [Min(0.1f)]
         public float fieldOfViewRatio = 1.2f;
+        [Tooltip("模型材质所使用的Shader")]
+        public string shaderName = "HDRP/Lit";
         [Tooltip("阴影模式")]
         public ShadowCastingMode shadowCastingMode = ShadowCastingMode.On;
         [Tooltip("失败重试次数")]
@@ -209,6 +211,7 @@ namespace Unity3MX
             //检查url是否可用
             if (UrlUtils.CheckUrl(url, (string error) =>
             {
+                mLoading = false;
                 onError?.Invoke(this, error);
             }))
             {
@@ -241,7 +244,10 @@ namespace Unity3MX
             });
 
             if (isError)
+            {
+                mLoading = false;
                 yield break;
+            }
 
             yield return createRootObject();
             yield return loadRootData();
