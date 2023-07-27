@@ -130,6 +130,8 @@ namespace Unity3MX
         private void OnDestroy()
         {
             taskPool.Dispose();
+            if (mCameraState != null)
+                mCameraState.Destroy();
         }
 
         // Update is called once per frame
@@ -191,7 +193,7 @@ namespace Unity3MX
         }
 
         private int compareRootNode(Unity3MXRootNode left, Unity3MXRootNode right)
-		{
+        {
             var result = left.cameraDistance - right.cameraDistance;
             if (result > 0)
                 return Mathf.CeilToInt(result);
@@ -387,8 +389,11 @@ namespace Unity3MX
                 mCamera = camera;
                 if (this.camera != null)
                     UnityEngine.Object.Destroy(this.camera);
-                //克隆一个新相机
-                this.camera = UnityEngine.Object.Instantiate(camera);
+                //生成一个新相机
+                var gameObject = new GameObject("Unity3MXCamera");
+                this.camera = gameObject.AddComponent<Camera>();
+                this.camera.orthographic = mCamera.orthographic;
+                this.camera.transform.SetParent(mCamera.transform.parent);
                 //设置为非活动状态
                 this.camera.gameObject.SetActive(false);
                 changed = true;
@@ -438,6 +443,14 @@ namespace Unity3MX
             tanTheta = this.rightClipPlane * this.inverseNear;
             float pixelWidth = (2.0f * distance * tanTheta) / Screen.width;
             return Mathf.Max(pixelWidth, pixelHeight);
+        }
+
+        public void Destroy()
+        {
+            if (this.camera != null)
+                UnityEngine.Object.Destroy(this.camera);
+            this.camera = null;
+            mCamera = null;
         }
     }
 
